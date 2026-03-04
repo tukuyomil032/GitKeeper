@@ -1,4 +1,7 @@
 #!/bin/bash
+# shellcheck source=colors.sh
+# The runtime resolves $BASE_DIR dynamically; tell shellcheck where to find
+# the local helper so the linter can follow the file when run on this script.
 
 # UI helpers: spinner, selection UIs
 
@@ -219,6 +222,7 @@ select_repo() {
 # Simple menu for branch selection (fallback)
 simple_select() {
   # Source colors
+  # shellcheck disable=SC1091
   source "$BASE_DIR/lib/colors.sh" 2>/dev/null || true
 
   echo ""
@@ -319,6 +323,7 @@ simple_select_repo() {
 
 display_summary() {
   # Source colors
+  # shellcheck disable=SC1091
   source "$BASE_DIR/lib/colors.sh" 2>/dev/null || true
 
   echo ""

@@ -7,7 +7,24 @@ set -euo pipefail
 # the `completions/_gitkeeper` file into a share directory, printing
 # instructions for enabling shell completion.
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+## Determine script directory (robust for bash, sh, and curl|sh)
+#  - If running under bash with BASH_SOURCE, use that.
+#  - Else if $0 contains a slash (./script or /path/script), use dirname($0).
+#  - Else fall back to current working directory.
+if [ -n "${BASH_SOURCE-}" ] && [ -n "${BASH_SOURCE[0]:-}" ]; then
+  POSSIBLE_SCRIPT="${BASH_SOURCE[0]}"
+else
+  POSSIBLE_SCRIPT="$0"
+fi
+
+case "$POSSIBLE_SCRIPT" in
+  */* )
+    HERE="$(cd "$(dirname "$POSSIBLE_SCRIPT")" >/dev/null 2>&1 && pwd)" || HERE="$(pwd)"
+    ;;
+  * )
+    HERE="$(pwd)"
+    ;;
+esac
 REPO_OWNER="tukuyomil032"
 REPO_NAME="GitKeeper"
 REPO_REF="main"
@@ -102,6 +119,24 @@ install_from_path() {
     fi
   fi
 
+  # lib files: the script `bin/gitkeeper` computes BASE_DIR by taking the
+  # parent of the binary's directory, then sourcing $BASE_DIR/lib/*.sh.
+  # To preserve that behavior, install the `lib/` directory to the parent
+  # of the chosen bin dir (e.g. /usr/local/lib for /usr/local/bin).
+  if [ -d "$HERE/lib" ]; then
+    local lib_parent
+    lib_parent=$(cd "$bin_dst_dir/.." && pwd)
+    local lib_dest="$lib_parent/lib"
+    echo "Installing lib files to $lib_dest"
+    if [ -w "$(dirname "$lib_dest")" ]; then
+      mkdir -p "$lib_dest"
+      cp -a "$HERE/lib/." "$lib_dest/"
+    else
+      sudo mkdir -p "$lib_dest"
+      sudo cp -a "$HERE/lib/." "$lib_dest/"
+    fi
+  fi
+
   echo "Installation complete."
   echo "Run '$bin_dst_dir/$BINARY_NAME --help' to verify."
 }
@@ -133,7 +168,29 @@ install_from_archive() {
   fi
 
   echo "Installing from downloaded archive..."
+  # Temporarily point SOURCE_COMPLETION at the file extracted from the
+  # archive so install_from_path copies the correct completion file.
+  old_source_completion="$SOURCE_COMPLETION"
+  SOURCE_COMPLETION="$shipped_completion"
   install_from_path "$shipped_bin" "$bin_dst_dir" "$prefix_dir"
+  SOURCE_COMPLETION="$old_source_completion"
+
+  # Install lib files from the extracted archive if present. When
+  # running via a downloaded script, $HERE may not point at the
+  # extracted archive directory, so we must copy lib from the
+  # extracted tree explicitly.
+  if [ -d "$extracted_dir/lib" ]; then
+    lib_parent=$(cd "$bin_dst_dir/.." && pwd)
+    lib_dest="$lib_parent/lib"
+    echo "Installing lib files to $lib_dest"
+    if [ -w "$(dirname "$lib_dest")" ]; then
+      mkdir -p "$lib_dest"
+      cp -a "$extracted_dir/lib/." "$lib_dest/"
+    else
+      sudo mkdir -p "$lib_dest"
+      sudo cp -a "$extracted_dir/lib/." "$lib_dest/"
+    fi
+  fi
 }
 
 main() {

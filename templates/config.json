@@ -1,0 +1,8 @@
+{
+  "protected": ["main", "master", "develop"],
+  "days": 30,
+  "checkMerged": true,
+  "checkStale": true,
+  "checkUpstreamGone": true,
+  "defaultBranch": "main"
+}

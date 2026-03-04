@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate Release
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck jq
+
+      - name: Validate tag format
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Invalid tag format: $TAG"
+            echo "Expected format: v1.0.0 or v1.0.0-alpha"
+            exit 1
+          fi
+          echo "✓ Tag format valid: $TAG"
+
+      - name: Run all checks
+        run: |
+          echo "Running linting..."
+          shellcheck bin/gitkeeper lib/*.sh install.sh
+          echo "✓ ShellCheck passed"
+          
+          echo "Validating JSON..."
+          jq . config.json > /dev/null
+          echo "✓ Config JSON valid"
+
+      - name: Verify files exist
+        run: |
+          required_files=(
+            "bin/gitkeeper"
+            "lib/config.sh"
+            "lib/analyze.sh"
+            "lib/ui.sh"
+            "lib/delete.sh"
+            "lib/github.sh"
+            "config.json"
+            "install.sh"
+            "install.ps1"
+            "branchwarden.ps1"
+            "README.md"
+            "Makefile"
+            "completions/_gitkeeper"
+          )
+          
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            fi
+          done
+          echo "✓ All required files present"
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: Build and Release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create macOS distribution
+        run: |
+          mkdir -p dist/macos
+          cp -r bin lib config.json completions install.sh Makefile README.md docs dist/macos/
+          tar -czf gitkeeper-macos.tar.gz -C dist/macos .
+          ls -lh gitkeeper-macos.tar.gz
+          echo "MACOS_SIZE=$(stat -f%z gitkeeper-macos.tar.gz)" >> $GITHUB_ENV
+
+      - name: Create Windows distribution
+        run: |
+          mkdir -p dist/windows
+          cp -r bin lib config.json install.ps1 branchwarden.ps1 Makefile README.md docs dist/windows/
+          cd dist/windows
+          zip -r ../../gitkeeper-windows.zip .
+          cd ../../
+          ls -lh gitkeeper-windows.zip
+
+      - name: Generate checksums
+        run: |
+          sha256sum gitkeeper-macos.tar.gz > gitkeeper-macos.tar.gz.sha256
+          sha256sum gitkeeper-windows.zip > gitkeeper-windows.zip.sha256
+          cat gitkeeper-*.sha256
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          {
+            echo "## 🎉 $VERSION Release"
+            echo ""
+            echo "### 📦 Downloads"
+            echo ""
+            echo "- **macOS** (Apple Silicon & Intel): [gitkeeper-macos.tar.gz]()"
+            echo "- **Windows**: [gitkeeper-windows.zip]()"
+            echo ""
+            echo "### ✨ Features"
+            echo ""
+            echo "✅ Safe git branch cleanup tool"
+            echo "✅ Detects merged, stale, and orphaned branches"
+            echo "✅ Interactive selection with fzf"
+            echo "✅ Full recovery backup logging"
+            echo "✅ Customizable configuration (JSON)"
+            echo "✅ zsh completions"
+            echo ""
+            echo "### 🚀 Quick Start"
+            echo ""
+            echo "**macOS:**"
+            echo "\`\`\`bash"
+            echo "tar -xzf gitkeeper-macos.tar.gz && cd gitkeeper && make install"
+            echo "\`\`\`"
+            echo ""
+            echo "**Windows:**"
+            echo "\`\`\`powershell"
+            echo "Expand-Archive gitkeeper-windows.zip"
+            echo "cd gitkeeper"
+            echo ".\\install.ps1"
+            echo "\`\`\`"
+            echo ""
+            echo "### 📚 Documentation"
+            echo ""
+            echo "See [README.md](https://github.com/hosiyomi322/gitkeeper#gitkeeper) for detailed documentation."
+            echo ""
+            echo "### 🔐 Checksums"
+            echo ""
+            echo "\`\`\`"
+            cat gitkeeper-*.sha256
+            echo "\`\`\`"
+          } > RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            gitkeeper-macos.tar.gz
+            gitkeeper-macos.tar.gz.sha256
+            gitkeeper-windows.zip
+            gitkeeper-windows.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Success
+        run: |
+          echo "✅ Release created successfully!"
+          echo "📦 Artifacts:"
+          ls -lh gitkeeper-*
+

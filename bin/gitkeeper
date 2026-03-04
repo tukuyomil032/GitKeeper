@@ -1,0 +1,182 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# gitkeeper - Safe Git branch cleanup tool
+# Detects and safely removes: merged branches, stale branches, upstream gone branches
+
+# Resolve symlinks for correct path resolution
+REAL_SCRIPT="$(readlink -f "$0")"
+BASE_DIR="$(cd "$(dirname "$REAL_SCRIPT")/.." && pwd)"
+export BASE_DIR
+
+# Source all lib files
+source "$BASE_DIR/lib/colors.sh"
+source "$BASE_DIR/lib/config.sh"
+source "$BASE_DIR/lib/analyze.sh"
+source "$BASE_DIR/lib/ui.sh"
+source "$BASE_DIR/lib/delete.sh"
+source "$BASE_DIR/lib/discovery.sh"
+
+# Initialize variables
+CANDIDATES=()
+DRY_RUN=false
+FORCE=false
+SCAN_DIR=""
+
+# Check for help flag first (before git repo check)
+if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
+  show_help
+  exit 0
+fi
+
+# Check for --scan-dir option and separate from other args
+ARGS=()
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--scan-dir" ]; then
+    shift
+    if [ $# -gt 0 ]; then
+      SCAN_DIR="$1"
+      shift
+    fi
+  else
+    ARGS+=("$1")
+    shift
+  fi
+done
+
+# Reset positional arguments
+if [ ${#ARGS[@]} -gt 0 ]; then
+  set -- "${ARGS[@]}"
+else
+  set --
+fi
+
+# Check required tools
+if ! command -v jq &> /dev/null; then
+  log_error "jq is required but not installed"
+  echo "   Install with: brew install jq"
+  exit 1
+fi
+
+# Resolve SCAN_DIR to absolute path if provided
+if [ -n "$SCAN_DIR" ]; then
+  if [[ "$SCAN_DIR" == /* ]]; then
+    # Already absolute
+    :
+  else
+    # Relative path - convert to absolute
+    SCAN_DIR="$(cd "$SCAN_DIR" 2>/dev/null && pwd)" || {
+      log_error "Invalid scan directory: $SCAN_DIR"
+      exit 1
+    }
+  fi
+fi
+
+# Check if we're in a git repository or need to discover repos
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  # Not in a git repo, check for --scan-dir or use current directory
+  scan_root="${SCAN_DIR:-.}"
+  # Ensure scan_root is absolute for discovery
+  if [[ "$scan_root" != /* ]]; then
+    scan_root="$(cd "$scan_root" && pwd)"
+  fi
+  
+  # Discover repositories
+  echo -e "${BLUE}🔍${NC} Scanning for Git repositories in: $scan_root"
+  echo ""
+  
+  repos=()
+  while IFS= read -r repo; do
+    repos+=("$repo")
+  done < <(find_repos "$scan_root")
+  
+  if [ ${#repos[@]} -eq 0 ]; then
+    log_error "No git repositories found in $scan_root"
+    exit 1
+  fi
+  
+  echo -e "${GREEN}Found ${#repos[@]} repository(ies)${NC}"
+  echo ""
+  
+  # Select repository
+  selected_repo=""
+  if [ ${#repos[@]} -eq 1 ]; then
+    selected_repo="${repos[0]}"
+  elif ! command -v fzf &> /dev/null; then
+    # Fallback to simple selection without fzf
+    echo ""
+    echo "📁 Available repositories:"
+    for i in "${!repos[@]}"; do
+      printf "  [%d] %s\n" "$((i+1))" "${repos[$i]}"
+    done
+    echo ""
+    read -rp "Select repository number: " repo_num
+    
+    if [ "$repo_num" -gt 0 ] && [ "$repo_num" -le ${#repos[@]} ]; then
+      selected_repo="${repos[$((repo_num-1))]}"
+    fi
+  else
+    # Use fzf for selection
+    selected_repo=$(printf "%s\n" "${repos[@]}" | fzf --preview "
+      repo=\$(echo {})
+      echo \"📍 Repository: \$repo\"
+      echo \"\"
+      if [ -d \"\$repo/.git\" ]; then
+        cd \"\$repo\" 2>/dev/null && {
+          echo \"Branches: \$(git branch --list | wc -l)\"
+          echo \"Remotes: \$(git remote | wc -l)\"
+          echo \"HEAD: \$(git rev-parse --abbrev-ref HEAD)\"
+          echo \"\"
+          echo \"Recent commits:\"
+          git log -2 --oneline
+        }
+      fi
+    ")
+  fi
+  
+  if [ -z "$selected_repo" ]; then
+    log_error "No repository selected."
+    exit 1
+  fi
+  
+  echo -e "${GREEN}Selected:${NC} $selected_repo"
+  echo ""
+  
+  # Change to selected repository
+  cd "$selected_repo" || exit 1
+fi
+
+# Main flow
+load_config
+parse_args "$@"
+
+echo -e "${BOLD}🌿 gitkeeper - Safe branch cleanup${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo -e "${CYAN}Config:${NC}"
+echo "  Protected: ${PROTECTED[*]}"
+echo "  Stale threshold: ${DAYS} days"
+echo -e "  ${CYAN}Checks:${NC}"
+[ "$CHECK_MERGED" = true ] && echo "    ✓ Merged"
+[ "$CHECK_STALE" = true ] && echo "    ✓ Stale"
+[ "$CHECK_GONE" = true ] && echo "    ✓ Upstream gone"
+echo ""
+
+collect_candidates
+
+if [ ${#CANDIDATES[@]} -eq 0 ]; then
+  echo "✨ No branches to clean - repository is tidy!"
+  exit 0
+fi
+
+display_summary
+
+selected=$(select_branches)
+
+if [ -z "$selected" ]; then
+  echo "Nothing selected."
+  exit 0
+fi
+
+confirm_and_delete "$selected"

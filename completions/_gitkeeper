@@ -1,0 +1,18 @@
+#compdef gitkeeper gk
+
+_gitkeeper() {
+  _arguments \
+    '--since[Override stale threshold]:days: ' \
+    '--protect[Add protected branch]:branch:.git/refs/heads' \
+    '--no-merged[Disable merged check]' \
+    '--no-stale[Disable stale check]' \
+    '--no-gone[Disable upstream gone check]' \
+    '--dry-run[Dry run mode - no branches deleted]' \
+    '--force[Force delete unmerged branches]' \
+    '--help[Show help message]'
+}
+
+_gitkeeper
+
+# Alias for gk
+compdef gk=gitkeeper

@@ -1,0 +1,180 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    name: ShellCheck Analysis
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck with detailed output
+        run: |
+          echo "🔍 Running ShellCheck on all shell scripts..."
+          
+          scripts=(
+            "bin/gitkeeper"
+            "lib/config.sh"
+            "lib/analyze.sh"
+            "lib/ui.sh"
+            "lib/delete.sh"
+            "lib/github.sh"
+            "install.sh"
+          )
+          
+          failed=0
+          for script in "${scripts[@]}"; do
+            echo ""
+            echo "📝 Checking: $script"
+            if shellcheck "$script"; then
+              echo "✓ $script passed"
+            else
+              echo "✗ $script failed"
+              failed=$((failed + 1))
+            fi
+          done
+          
+          if [ $failed -gt 0 ]; then
+            echo ""
+            echo "❌ $failed script(s) failed ShellCheck"
+            exit 1
+          else
+            echo ""
+            echo "✅ All scripts passed ShellCheck"
+          fi
+
+  json-validation:
+    runs-on: ubuntu-latest
+    name: JSON Configuration Validation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Validate config.json
+        run: |
+          echo "Validating config.json..."
+          jq . config.json > /dev/null
+          echo "✓ config.json is valid JSON"
+          
+          # Check required fields
+          required_fields=("protected" "days" "checkMerged" "checkStale" "checkUpstreamGone" "defaultBranch")
+          for field in "${required_fields[@]}"; do
+            if jq -e ".$field" config.json > /dev/null; then
+              echo "✓ Field '$field' exists"
+            else
+              echo "✗ Field '$field' missing"
+              exit 1
+            fi
+          done
+          
+          echo ""
+          echo "✅ All required configuration fields present"
+
+  permissions:
+    runs-on: ubuntu-latest
+    name: Check File Permissions
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify executable permissions
+        run: |
+          echo "Checking file permissions..."
+          
+          executables=(
+            "bin/gitkeeper"
+            "lib/github.sh"
+            "install.sh"
+          )
+          
+          for file in "${executables[@]}"; do
+            if [ -f "$file" ]; then
+              if [ -x "$file" ]; then
+                echo "✓ $file is executable"
+              else
+                echo "⚠️  $file is not executable (this is OK, permissions are set during install)"
+              fi
+            fi
+          done
+          
+          echo "✅ Permissions check complete"
+
+  markdown:
+    runs-on: ubuntu-latest
+    name: Markdown Validation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README exists
+        run: |
+          if [ -f "README.md" ]; then
+            echo "✓ README.md exists"
+            wc -l README.md
+          else
+            echo "✗ README.md not found"
+            exit 1
+          fi
+
+      - name: Check markdown syntax
+        run: |
+          echo "Checking markdown files..."
+          files=(
+            "README.md"
+            "docs/design-conversation.md"
+          )
+          
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              # Basic markdown syntax check
+              if grep -q '^#' "$file" && grep -q '```' "$file"; then
+                echo "✓ $file appears to be valid markdown"
+              fi
+            fi
+          done
+          
+          echo "✅ Markdown check complete"
+
+  structure:
+    runs-on: ubuntu-latest
+    name: Project Structure Validation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify directory structure
+        run: |
+          echo "Checking project structure..."
+          
+          dirs=(
+            "bin"
+            "lib"
+            "completions"
+            ".github/workflows"
+            "docs"
+          )
+          
+          for dir in "${dirs[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "✓ Directory exists: $dir"
+              find "$dir" -type f | wc -l | xargs echo "  Files:"
+            else
+              echo "✗ Directory missing: $dir"
+              exit 1
+            fi
+          done
+          
+          echo ""
+          echo "✅ Project structure is valid"

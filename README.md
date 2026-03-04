@@ -6,7 +6,6 @@ Safe, intelligent, and interactive Git branch management for macOS (and Unix-lik
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![macOS](https://img.shields.io/badge/macOS-✓-blue)
-![Linux](https://img.shields.io/badge/Linux-✓-blue)
 
 ---
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck source=colors.sh
 
 # Generate GitHub PR URL for a branch
 # Usage: github.sh <branch-name>

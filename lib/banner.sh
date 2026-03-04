@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck source=colors.sh
 
 # ASCII banner and pretty UI helpers for interactive mode
 # Usage: source "$BASE_DIR/lib/banner.sh" && show_banner

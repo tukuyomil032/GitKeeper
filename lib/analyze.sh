@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck source=colors.sh
 
 collect_candidates() {
   CANDIDATES=()

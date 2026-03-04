@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck source=colors.sh
 
 # Resolve config.json path (handles both direct execution and symlink)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

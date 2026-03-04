@@ -1,8 +1,11 @@
 #!/bin/bash
+# shellcheck source=colors.sh
 
 confirm_and_delete() {
   # Source colors
-  source "$BASE_DIR/lib/colors.sh" 2>/dev/null || true
+    # shellcheck disable=SC1091
+    # shellcheck source=colors.sh
+    source "$BASE_DIR/lib/colors.sh" 2>/dev/null || true
   
   local branches_to_delete="$1"
 

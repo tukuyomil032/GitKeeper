@@ -4,7 +4,6 @@
 
 Safe, intelligent, and interactive Git branch management for macOS (and Unix-like systems).
 
-[![CI](https://github.com/hosiyomi322/gitkeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/hosiyomi322/gitkeeper/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![macOS](https://img.shields.io/badge/macOS-✓-blue)
 ![Linux](https://img.shields.io/badge/Linux-✓-blue)

@@ -11,17 +11,35 @@ BASE_DIR="$(cd "$(dirname "$REAL_SCRIPT")/.." && pwd)"
 export BASE_DIR
 
 # Source all lib files
+# shellcheck disable=SC1091
+# shellcheck source=../lib/colors.sh
+# `BASE_DIR` 解決は実行時に行われるため ShellCheck にファイル位置を教える
 source "$BASE_DIR/lib/colors.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/config.sh
 source "$BASE_DIR/lib/config.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/banner.sh
 source "$BASE_DIR/lib/banner.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/analyze.sh
 source "$BASE_DIR/lib/analyze.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/ui.sh
 source "$BASE_DIR/lib/ui.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/delete.sh
 source "$BASE_DIR/lib/delete.sh"
+# shellcheck disable=SC1091
+# shellcheck source=../lib/discovery.sh
 source "$BASE_DIR/lib/discovery.sh"
 
 # Initialize variables
 CANDIDATES=()
+# shellcheck disable=SC2034
+# `DRY_RUN`/`FORCE` are intentionally set here; other scripts or sourced code may use them.
 DRY_RUN=false
+# shellcheck disable=SC2034
 FORCE=false
 SCAN_DIR=""
 ORIGINAL_ARGC=$#

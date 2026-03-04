@@ -37,7 +37,15 @@ $ gitkeeper
 ```
 
 ---
+### Install via curl (one-liner)
 
+You can install gitkeeper directly with a single curl command. Review the script before running if you prefer:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/tukuyomil032/GitKeeper/refs/heads/main/install.sh | sh
+```
+
+---
 ## 🚀 Quick Start
 
 ### macOS (Intel & Apple Silicon)

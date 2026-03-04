@@ -2,14 +2,18 @@
 
 _gitkeeper() {
   _arguments \
-    '--since[Override stale threshold]:days: ' \
-    '--protect[Add protected branch]:branch:.git/refs/heads' \
-    '--no-merged[Disable merged check]' \
-    '--no-stale[Disable stale check]' \
-    '--no-gone[Disable upstream gone check]' \
-    '--dry-run[Dry run mode - no branches deleted]' \
-    '--force[Force delete unmerged branches]' \
-    '--help[Show help message]'
+    '(-d --directory)'{-d,--directory}'[Scan for repositories in directory]:directory:_files -/' \
+    '(--scan-dir)'--scan-dir'[Deprecated: old name for --directory]:directory:_files -/' \
+    '(-s --since)'{-s,--since}'[Override stale threshold (days)]:days:' \
+    '(-p --protect)'{-p,--protect}'[Add protected branch]:branch:->branches' \
+    '(-M --no-merged)'{-M,--no-merged}'[Disable merged branch check]' \
+    '(-S --no-stale)'{-S,--no-stale}'[Disable stale branch check]' \
+    '(-G --no-gone)'{-G,--no-gone}'[Disable upstream gone branch check]' \
+    '(-n --dry-run)'{-n,--dry-run}'[Dry run mode - no branches deleted]' \
+    '(-f --force)'{-f,--force}'[Force delete unmerged branches]' \
+    '(-h --help)'{-h,--help}'[Show help message]'
+
+  return 0
 }
 
 _gitkeeper

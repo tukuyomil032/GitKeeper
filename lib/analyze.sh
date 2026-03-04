@@ -13,7 +13,14 @@ collect_candidates() {
     $CHECK_GONE && is_gone "$branch" && reason+="gone "
 
     if [ -n "$reason" ]; then
-      CANDIDATES+=("$branch | $reason")
+      # Compute a home-relative path for display (use ~ when under $HOME)
+      repo_path=$(pwd 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null)
+      if [ -n "$repo_path" ] && [[ "$repo_path" == "$HOME"* ]]; then
+        display_path="~${repo_path#"$HOME"}"
+      else
+        display_path="$repo_path"
+      fi
+      CANDIDATES+=("$branch | $reason | $display_path")
     fi
   done
 }

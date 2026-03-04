@@ -45,7 +45,7 @@ $ gitkeeper
 
 ```bash
 # Clone the repository
-git clone https://github.com/hosiyomi322/gitkeeper.git
+git clone https://github.com/tukuyomil322/gitkeeper.git
 cd gitkeeper
 
 # Install dependencies
@@ -56,28 +56,26 @@ brew install fzf # (optional, for enhanced interactive UI)
 ./scripts/install-macos.sh
 ```
 
-### Windows (PowerShell 5.0+)
+### Linux
 
-```powershell
-# Download and extract
-git clone https://github.com/hosiyomi322/gitkeeper.git
+```bash
+# Clone the repository
+git clone https://github.com/tukuyomil322/gitkeeper.git
 cd gitkeeper
 
 # Install dependencies
-choco install jq        # or download from https://stedolan.github.io/jq/download/
-choco install fzf       # (optional, for enhanced UI - requires Unix tools in Git Bash)
+brew install jq     # or use your distro package manager
+# fzf is optional for enhanced interactive selection
+brew install fzf
 
-# Run installer (requires elevation for system-wide install)
-.\scripts\install-windows.ps1
-
-# Or install to user directory only
-.\scripts\install-windows.ps1 -UserInstall $true
+# Run installer (if provided for your platform)
+./scripts/install-macos.sh  # installer currently targets macOS; see repo scripts
 ```
 
 ### From Source (Development)
 
 ```bash
-git clone https://github.com/hosiyomi322/gitkeeper.git
+git clone https://github.com/tukuyomil322/gitkeeper.git
 cd gitkeeper
 
 # Make installer executable
@@ -113,13 +111,24 @@ gitkeeper --force
 
 ### With Options
 
+The CLI supports both long and short options. Notable options and behavior changes:
+
+- `--directory, -d DIR` : Specify directory to scan (accepts relative paths and `~` expansion).
+- `--since, -s DAYS` : Override stale threshold for the run.
+- `--protect, -p BRANCH` : Add a protected branch (can be repeated).
+- `--dry-run, -n` : Show what would be deleted without deleting.
+- `--force, -f` : Force delete (use with caution).
+- `--configure, -C` : Interactive config editor that writes `config.json`.
+
+Examples:
+
 ```bash
 # Use 45 days threshold instead of default 30
 gitkeeper --since 45
 
 # Disable certain checks
 gitkeeper --no-stale       # Don't check for old branches
-gitkeeper --no-merged      # Only check stale & gone
+gitkeeper --no-merged      # Skip merged check
 gitkeeper --no-gone        # Skip upstream gone check
 
 # Add exceptions
@@ -129,14 +138,19 @@ gitkeeper --protect hotfix-*  # (exact match)
 
 ### Multi-Repository Scanning
 
-```bash
-# Scan directory for git repositories
-gitkeeper --scan-dir ~/projects
+You can point gitkeeper at a directory (absolute or relative) to scan multiple repositories. The option is `--directory` (short `-d`) and accepts `~` expansion and relative paths.
 
-# Without --scan-dir, uses current directory
-cd ~/my-projects
-gitkeeper  # Auto-scans current dir if not a git repo
+When multiple repositories are found, gitkeeper presents an interactive selection (fzf if available, numbered menu otherwise). Example:
+
+```bash
+# Scan relative path
+gitkeeper -d ./projects
+
+# Scan with tilde expansion
+gitkeeper --directory ~/workspace
 ```
+
+If you run `gitkeeper` without any options while not inside a git repo, it will prompt you interactively for the directory to scan (relative path allowed), stale threshold, and protected branches for that single run.
 
 When multiple repositories are found, gitkeeper presents an interactive selection (fzf if available, numbered menu otherwise).
 
@@ -237,8 +251,6 @@ $ git branch feature/old-ui abc1234567
 
 ### Platform Support
 - ✅ macOS (Intel & Apple Silicon)
-- ⚠️ Windows (WSL 2 or Git Bash required)
-- ✅ Linux (bash 4+)
 
 ---
 
@@ -282,6 +294,7 @@ Bug reports & PRs welcome! Please follow:
 - ShellCheck linting (`make lint`)
 - Commit messages with clear purpose
 - Test on both macOS and Windows if possible
+ - Test on macOS and Linux if possible
 
 ---
 
@@ -291,7 +304,8 @@ Bug reports & PRs welcome! Please follow:
 gitkeeper                      # Interactive cleanup
 gk                            # Quick alias shortcut
 gitkeeper --help              # Show help
-gitkeeper --scan-dir ~/repos  # Scan and select repository
+gitkeeper --directory ~/repos  # Scan and select repository (accepts relative paths)
+gitkeeper -d ./projects        # Short form
 gitkeeper --dry-run           # Preview changes
 gitkeeper --force             # Force delete unmerged
 gitkeeper --since 45          # Use 45-day threshold
@@ -299,6 +313,7 @@ gitkeeper --protect staging   # Add protected branch
 gitkeeper --no-merged         # Skip merged check
 gitkeeper --no-stale          # Skip stale check
 gitkeeper --no-gone           # Skip upstream gone check
+gitkeeper --configure         # Interactive config editor (writes config.json)
 ```
 
 ---
@@ -365,38 +380,17 @@ All workflows must pass before merging to main.
 
 ---
 
----
-
-## 🤝 Related Tools
-
-Building the ecosystem for better Git workflows:
-
-- **[depscape](https://github.com/hosiyomi322/depscape)** - Dependency graph visualization
-- **[git-hygiene](https://github.com/hosiyomi322/git-hygiene)** - Code quality metrics
-
----
-
 ## 📄 License
 
 MIT License - see LICENSE file for details
 
 ---
 
-## 🎯 Roadmap
-
-- [ ] Homebrew formula
-- [ ] Scoop (Windows package manager) support
-- [ ] GitHub Actions integration
-- [ ] Bulk branch analysis across org repos
-- [ ] Branch age heatmap visualization
-
----
-
 ## 💬 Support
 
 - **Questions?** Open an issue on GitHub
-- **Found a bug?** [Report it](https://github.com/hosiyomi322/gitkeeper/issues)
-- **Have ideas?** [Discussions](https://github.com/hosiyomi322/gitkeeper/discussions)
+- **Found a bug?** [Report it](https://github.com/tukuyomil322/gitkeeper/issues)
+- **Have ideas?** [Discussions](https://github.com/tukuyomil322/gitkeeper/discussions)
 
 ---
 

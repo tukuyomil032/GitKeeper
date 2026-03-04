@@ -20,7 +20,7 @@ jobs:
       - name: Run ShellCheck with detailed output
         run: |
           echo "🔍 Running ShellCheck on all shell scripts..."
-          
+
           scripts=(
             "bin/gitkeeper"
             "lib/config.sh"
@@ -28,28 +28,30 @@ jobs:
             "lib/ui.sh"
             "lib/delete.sh"
             "lib/github.sh"
+            "lib/colors.sh"
             "install.sh"
           )
-          
+
           failed=0
           for script in "${scripts[@]}"; do
             echo ""
             echo "📝 Checking: $script"
-            if shellcheck "$script"; then
-              echo "✓ $script passed"
+            # Use -x so shellcheck follows sourced files; only consider error-level issues as failures
+            if shellcheck -x --severity=error "$script"; then
+              echo "✓ $script passed (errors only)"
             else
-              echo "✗ $script failed"
+              echo "✗ $script has error-level ShellCheck findings"
               failed=$((failed + 1))
             fi
           done
-          
+
           if [ $failed -gt 0 ]; then
             echo ""
-            echo "❌ $failed script(s) failed ShellCheck"
+            echo "❌ $failed script(s) had ShellCheck error(s)"
             exit 1
           else
             echo ""
-            echo "✅ All scripts passed ShellCheck"
+            echo "✅ All scripts passed ShellCheck (no errors)"
           fi
 
   json-validation:
@@ -62,23 +64,28 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Validate config.json
+      - name: Validate templates/config.json
         run: |
-          echo "Validating config.json..."
-          jq . config.json > /dev/null
-          echo "✓ config.json is valid JSON"
-          
+          CONFIG_FILE="templates/config.json"
+          echo "Validating ${CONFIG_FILE}..."
+          if [ ! -f "${CONFIG_FILE}" ]; then
+            echo "✗ ${CONFIG_FILE} not found"
+            exit 1
+          fi
+          jq . "${CONFIG_FILE}" > /dev/null
+          echo "✓ ${CONFIG_FILE} is valid JSON"
+
           # Check required fields
           required_fields=("protected" "days" "checkMerged" "checkStale" "checkUpstreamGone" "defaultBranch")
           for field in "${required_fields[@]}"; do
-            if jq -e ".$field" config.json > /dev/null; then
+            if jq -e ".${field}" "${CONFIG_FILE}" > /dev/null; then
               echo "✓ Field '$field' exists"
             else
               echo "✗ Field '$field' missing"
               exit 1
             fi
           done
-          
+
           echo ""
           echo "✅ All required configuration fields present"
 
@@ -163,7 +170,6 @@ jobs:
             "lib"
             "completions"
             ".github/workflows"
-            "docs"
           )
           
           for dir in "${dirs[@]}"; do

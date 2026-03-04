@@ -13,6 +13,7 @@ export BASE_DIR
 # Source all lib files
 source "$BASE_DIR/lib/colors.sh"
 source "$BASE_DIR/lib/config.sh"
+source "$BASE_DIR/lib/banner.sh"
 source "$BASE_DIR/lib/analyze.sh"
 source "$BASE_DIR/lib/ui.sh"
 source "$BASE_DIR/lib/delete.sh"
@@ -23,6 +24,11 @@ CANDIDATES=()
 DRY_RUN=false
 FORCE=false
 SCAN_DIR=""
+ORIGINAL_ARGC=$#
+
+# Install signal trap for graceful interrupt handling (on_sigint in lib/ui.sh)
+trap 'on_sigint' INT
+
 
 # Check for help flag first (before git repo check)
 if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
@@ -30,19 +36,34 @@ if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
   exit 0
 fi
 
-# Check for --scan-dir option and separate from other args
+# Check for --directory / -d option and separate from other args
 ARGS=()
 while [ $# -gt 0 ]; do
-  if [ "$1" = "--scan-dir" ]; then
-    shift
-    if [ $# -gt 0 ]; then
-      SCAN_DIR="$1"
+  case "$1" in
+    --directory|-d)
       shift
-    fi
-  else
-    ARGS+=("$1")
-    shift
-  fi
+      if [ $# -gt 0 ]; then
+        SCAN_DIR="$1"
+        shift
+      fi
+      ;;
+    --scan-dir)
+      # backward compatibility
+      shift
+      if [ $# -gt 0 ]; then
+        SCAN_DIR="$1"
+        shift
+      fi
+      ;;
+    -*)
+      ARGS+=("$1")
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
 done
 
 # Reset positional arguments
@@ -81,21 +102,24 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
   if [[ "$scan_root" != /* ]]; then
     scan_root="$(cd "$scan_root" && pwd)"
   fi
+  # Disallow scanning the user's home directory to avoid touching dotfiles like .nvm/.npm
+  if [ "$scan_root" = "$HOME" ]; then
+    log_error "Refusing to scan home directory ($HOME). Please specify a subdirectory to scan."
+    exit 1
+  fi
   
   # Discover repositories
-  echo -e "${BLUE}🔍${NC} Scanning for Git repositories in: $scan_root"
   echo ""
-  
+  spinner_start "🔍" "Scanning for Git repositories in: $scan_root"
   repos=()
-  while IFS= read -r repo; do
-    repos+=("$repo")
-  done < <(find_repos "$scan_root")
-  
+  while IFS= read -r repo; do repos+=("$repo"); done < <(find_repos "$scan_root")
+  spinner_stop
+
   if [ ${#repos[@]} -eq 0 ]; then
     log_error "No git repositories found in $scan_root"
     exit 1
   fi
-  
+
   echo -e "${GREEN}Found ${#repos[@]} repository(ies)${NC}"
   echo ""
   
@@ -151,19 +175,110 @@ fi
 load_config
 parse_args "$@"
 
-echo -e "${BOLD}🌿 gitkeeper - Safe branch cleanup${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# If run with no args, prompt interactively for one-off settings (do not persist)
+interactive_oneoff_run() {
+  # Show a pretty banner for interactive mode
+  if type show_banner >/dev/null 2>&1; then
+    show_banner
+  else
+    echo "Interactive one-time run (settings won't be saved to config.json)"
+  fi
+
+  echo ""
+
+  # Prompt for scan directory (relative path)
+  while true; do
+    read -rp "Directory to scan (relative path, default .): " user_dir
+    user_dir=${user_dir:-.}
+    # Expand leading ~ to $HOME so inputs like '~/Documents' work
+    if [[ "$user_dir" == ~* ]]; then
+      user_dir="${user_dir/#\~/$HOME}"
+    fi
+    # Resolve to absolute
+    abs_dir=""
+    if [[ "$user_dir" == /* ]]; then abs_dir="$user_dir"; else abs_dir="$(cd "$user_dir" 2>/dev/null && pwd)"; fi
+    if [ -z "$abs_dir" ]; then
+      echo "Directory not found. Please try again."
+      continue
+    fi
+    if [ "$abs_dir" = "$HOME" ]; then
+      echo "Refusing to scan home directory. Please choose a subdirectory.";
+      continue
+    fi
+    SCAN_DIR="$abs_dir"
+    break
+  done
+
+  # Add visual spacing between prompts for readability
+  echo ""
+  echo "Stale threshold in days (default ${DAYS}):"
+  read -rp "(press Enter to keep ${DAYS}): " user_days
+  if [ -n "$user_days" ]; then
+    DAYS="$user_days"
+  fi
+  echo ""
+
+  # If the selected path is a git repository, change into it so subsequent
+  # git operations run in that repo context. Otherwise leave as-is.
+  if git -C "$SCAN_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+    cd "$SCAN_DIR" || true
+  fi
+
+  # Prompt for which protected branches to keep
+  if [ ${#PROTECTED[@]} -gt 0 ]; then
+    echo "Protected branches (select which to keep protected for this run):"
+    for i in "${!PROTECTED[@]}"; do
+      idx=$((i+1))
+      printf "  [%d] %s\n" "$idx" "${PROTECTED[$i]}"
+    done
+    echo ""
+    read -rp "Enter numbers separated by spaces (or 'all'/'none', default all): " sel
+    sel=${sel:-all}
+    if [ "$sel" = "none" ]; then
+      PROTECTED=()
+    elif [ "$sel" = "all" ]; then
+      : # keep as is
+    else
+      newp=()
+      for token in $sel; do
+        if [[ "$token" =~ ^[0-9]+$ ]]; then
+          idx=$((token-1))
+          if [ "$idx" -ge 0 ] && [ "$idx" -lt ${#PROTECTED[@]} ]; then
+            newp+=("${PROTECTED[$idx]}")
+          fi
+        fi
+      done
+      PROTECTED=("${newp[@]}")
+    fi
+  fi
+
+  echo "Running scan in: $SCAN_DIR (stale threshold: ${DAYS}d)"
+}
+
+if [ "$ORIGINAL_ARGC" -eq 0 ]; then
+  interactive_oneoff_run
+fi
+
+# Pretty header after interactive selection
+if type pretty_header >/dev/null 2>&1; then
+  pretty_header "🌿 gitkeeper - Safe branch cleanup"
+else
+  echo -e "${BOLD}🌿 gitkeeper - Safe branch cleanup${NC}"
+fi
+echo "─────────────────────────────────────────────────────────────"
 echo ""
 echo -e "${CYAN}Config:${NC}"
-echo "  Protected: ${PROTECTED[*]}"
-echo "  Stale threshold: ${DAYS} days"
+echo -e "  ${YELLOW}Protected:${NC} ${PROTECTED[*]}"
+echo -e "  ${YELLOW}Stale threshold:${NC} ${DAYS} days"
 echo -e "  ${CYAN}Checks:${NC}"
-[ "$CHECK_MERGED" = true ] && echo "    ✓ Merged"
-[ "$CHECK_STALE" = true ] && echo "    ✓ Stale"
-[ "$CHECK_GONE" = true ] && echo "    ✓ Upstream gone"
+[ "$CHECK_MERGED" = true ] && echo -e "    ${GREEN}✓${NC} Merged"
+[ "$CHECK_STALE" = true ] && echo -e "    ${GREEN}✓${NC} Stale"
+[ "$CHECK_GONE" = true ] && echo -e "    ${GREEN}✓${NC} Upstream gone"
 echo ""
 
+spinner_start "🔎" "Scanning branches in repository..."
 collect_candidates
+spinner_stop
 
 if [ ${#CANDIDATES[@]} -eq 0 ]; then
   echo "✨ No branches to clean - repository is tidy!"

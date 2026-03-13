@@ -17,6 +17,22 @@ confirm_and_delete() {
   done <<< "$branches_to_delete"
 
   if [ "$DRY_RUN" = true ]; then
+    if [ "$DELETE_REMOTE" = true ]; then
+      echo ""
+      echo -e "${BOLD}🌐 Remote branches that would also be deleted:${NC}"
+      while IFS= read -r branch; do
+        [ -z "$branch" ] && continue
+        upstream=$(git for-each-ref --format='%(upstream:short)' "refs/heads/$branch" 2>/dev/null)
+        if [ -n "$upstream" ]; then
+          echo "   • $upstream"
+        else
+          fallback_remote=$(git remote 2>/dev/null | head -1)
+          if [ -n "$fallback_remote" ]; then
+            echo "   • $fallback_remote/$branch (fallback remote)"
+          fi
+        fi
+      done <<< "$branches_to_delete"
+    fi
     echo ""
     echo -e "${YELLOW}🏜️  Dry run mode - no branches were deleted${NC}"
     exit 0
@@ -43,6 +59,8 @@ confirm_and_delete() {
 
   deleted_count=0
   failed_count=0
+  remote_deleted_count=0
+  remote_failed_count=0
 
   while IFS= read -r branch; do
     [ -z "$branch" ] && continue
@@ -55,6 +73,20 @@ confirm_and_delete() {
       continue
     fi
 
+    # Resolve upstream remote info before local deletion (refs gone afterward)
+    del_remote=""
+    del_remote_branch=""
+    if [ "$DELETE_REMOTE" = true ]; then
+      upstream=$(git for-each-ref --format='%(upstream:short)' "refs/heads/$branch" 2>/dev/null)
+      if [ -n "$upstream" ]; then
+        del_remote="${upstream%%/*}"
+        del_remote_branch="${upstream#*/}"
+      else
+        del_remote=$(git remote 2>/dev/null | head -1)
+        del_remote_branch="$branch"
+      fi
+    fi
+
     # Get commit hash before deletion
     hash=$(git rev-parse "$branch" 2>/dev/null)
     last_date=$(git log -1 --format="%ai" "$branch" 2>/dev/null)
@@ -63,11 +95,13 @@ confirm_and_delete() {
       echo "$branch | $hash | $last_date" >> "$log_file"
     fi
 
-    # Attempt deletion
+    # Attempt local deletion
+    local_success=false
     if [ "$FORCE" = true ]; then
       if git branch -D "$branch" 2>/dev/null; then
         echo -e "${GREEN}✓ Deleted: $branch${NC}"
         ((deleted_count++))
+        local_success=true
       else
         echo -e "${RED}✗ Failed to force delete: $branch${NC}"
         ((failed_count++))
@@ -76,9 +110,23 @@ confirm_and_delete() {
       if git branch -d "$branch" 2>/dev/null; then
         echo -e "${GREEN}✓ Deleted: $branch${NC}"
         ((deleted_count++))
+        local_success=true
       else
         echo -e "${RED}✗ Failed to delete (use --force to override): $branch${NC}"
         ((failed_count++))
+      fi
+    fi
+
+    # Attempt remote deletion if enabled and local deletion succeeded
+    if [ "$DELETE_REMOTE" = true ] && [ "$local_success" = true ] && [ -n "$del_remote" ]; then
+      echo -e "   ${CYAN}→ Deleting remote branch: $del_remote/$del_remote_branch${NC}"
+      echo "$branch | $del_remote/$del_remote_branch | remote" >> "$log_file"
+      if git push "$del_remote" --delete "$del_remote_branch" 2>/dev/null; then
+        echo -e "   ${GREEN}✓ Remote deleted: $del_remote/$del_remote_branch${NC}"
+        ((remote_deleted_count++))
+      else
+        echo -e "   ${RED}✗ Failed to delete remote: $del_remote/$del_remote_branch${NC}"
+        ((remote_failed_count++))
       fi
     fi
   done <<< "$branches_to_delete"
@@ -87,8 +135,14 @@ confirm_and_delete() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -e "${BOLD}✨ Summary:${NC}"
   echo -e "   ${GREEN}Deleted: $deleted_count${NC}"
+  if [ "$DELETE_REMOTE" = true ]; then
+    echo -e "   ${GREEN}Deleted (remote): $remote_deleted_count${NC}"
+  fi
   if [ "$failed_count" -gt 0 ]; then
     echo -e "   ${RED}Failed: $failed_count${NC}"
+  fi
+  if [ "$DELETE_REMOTE" = true ] && [ "$remote_failed_count" -gt 0 ]; then
+    echo -e "   ${RED}Failed (remote): $remote_failed_count${NC}"
   fi
   echo -e "   ${CYAN}Log: $log_file${NC}"
   echo ""

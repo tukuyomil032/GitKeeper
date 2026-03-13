@@ -41,6 +41,8 @@ CANDIDATES=()
 DRY_RUN=false
 # shellcheck disable=SC2034
 FORCE=false
+# shellcheck disable=SC2034
+DELETE_REMOTE=false
 SCAN_DIR=""
 ORIGINAL_ARGC=$#
 
@@ -292,6 +294,7 @@ echo -e "  ${CYAN}Checks:${NC}"
 [ "$CHECK_MERGED" = true ] && echo -e "    ${GREEN}✓${NC} Merged"
 [ "$CHECK_STALE" = true ] && echo -e "    ${GREEN}✓${NC} Stale"
 [ "$CHECK_GONE" = true ] && echo -e "    ${GREEN}✓${NC} Upstream gone"
+[ "$DELETE_REMOTE" = true ] && echo -e "  ${YELLOW}Delete remote:${NC} enabled"
 echo ""
 
 spinner_start "🔎" "Scanning branches in repository..."

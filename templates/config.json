@@ -4,5 +4,6 @@
   "checkMerged": true,
   "checkStale": true,
   "checkUpstreamGone": true,
-  "defaultBranch": "main"
+  "defaultBranch": "main",
+  "deleteRemote": false
 }

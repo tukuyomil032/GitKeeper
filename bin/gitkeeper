@@ -41,6 +41,8 @@ CANDIDATES=()
 DRY_RUN=false
 # shellcheck disable=SC2034
 FORCE=false
+# shellcheck disable=SC2034
+DELETE_REMOTE=false
 SCAN_DIR=""
 ORIGINAL_ARGC=$#
 

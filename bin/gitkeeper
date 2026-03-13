@@ -37,10 +37,12 @@ source "$BASE_DIR/lib/discovery.sh"
 # Initialize variables
 CANDIDATES=()
 # shellcheck disable=SC2034
-# `DRY_RUN`/`FORCE` are intentionally set here; other scripts or sourced code may use them.
+# `DRY_RUN`/`FORCE`/`DELETE_REMOTE` are intentionally set here; other scripts or sourced code may use them.
 DRY_RUN=false
 # shellcheck disable=SC2034
 FORCE=false
+# shellcheck disable=SC2034
+DELETE_REMOTE=false
 SCAN_DIR=""
 ORIGINAL_ARGC=$#
 

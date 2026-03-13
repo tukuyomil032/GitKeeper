@@ -27,6 +27,8 @@ load_config() {
   export CHECK_GONE
   DEFAULT_BRANCH=$(jq -r '.defaultBranch' "$CONFIG_FILE" 2>/dev/null)
   export DEFAULT_BRANCH
+  DELETE_REMOTE=$(jq -r '.deleteRemote' "$CONFIG_FILE" 2>/dev/null)
+  export DELETE_REMOTE
 }
 
 parse_args() {
@@ -46,6 +48,8 @@ parse_args() {
         DRY_RUN=true; export DRY_RUN ;;
       --force|-f)
         FORCE=true; export FORCE ;;
+      --delete-remote|-R)
+        DELETE_REMOTE=true; export DELETE_REMOTE ;;
       --help|-h)
         show_help; exit 0 ;;
           --configure|-C)
@@ -79,6 +83,7 @@ OPTIONS:
   --no-gone, -G           Disable upstream gone branch check
   --dry-run, -n           Show what would be deleted without deleting
   --force, -f             Force delete unmerged branches (use with caution)
+  --delete-remote, -R     Also delete the corresponding remote branch (opt-in)
   --help, -h              Show this help message
 
 EXAMPLES:
@@ -109,7 +114,8 @@ interactive_edit_config() {
   "checkMerged": true,
   "checkStale": true,
   "checkUpstreamGone": true,
-  "defaultBranch": "main"
+  "defaultBranch": "main",
+  "deleteRemote": false
 }
 JSON
   fi
@@ -121,6 +127,7 @@ JSON
   cur_checkStale=$(jq -r '.checkStale' "$CONFIG_FILE" 2>/dev/null || echo true)
   cur_checkUpstreamGone=$(jq -r '.checkUpstreamGone' "$CONFIG_FILE" 2>/dev/null || echo true)
   cur_defaultBranch=$(jq -r '.defaultBranch' "$CONFIG_FILE" 2>/dev/null || echo main)
+  cur_deleteRemote=$(jq -r '.deleteRemote' "$CONFIG_FILE" 2>/dev/null || echo false)
 
   read -rp "Protected branches (space-separated) [${cur_protected}]: " new_protected
   new_protected=${new_protected:-$cur_protected}
@@ -134,6 +141,8 @@ JSON
   new_checkUpstreamGone=${new_checkUpstreamGone:-$cur_checkUpstreamGone}
   read -rp "Default branch [${cur_defaultBranch}]: " new_defaultBranch
   new_defaultBranch=${new_defaultBranch:-$cur_defaultBranch}
+  read -rp "Delete remote branch as well? (true/false) [${cur_deleteRemote}]: " new_deleteRemote
+  new_deleteRemote=${new_deleteRemote:-$cur_deleteRemote}
 
   # Build JSON
   protected_array=$(printf '%s\n' "$new_protected" | jq -R . | jq -s .)
@@ -145,7 +154,8 @@ JSON
   "checkMerged": $(printf '%s' "$new_checkMerged"),
   "checkStale": $(printf '%s' "$new_checkStale"),
   "checkUpstreamGone": $(printf '%s' "$new_checkUpstreamGone"),
-  "defaultBranch": "$(printf '%s' "$new_defaultBranch")"
+  "defaultBranch": "$(printf '%s' "$new_defaultBranch")",
+  "deleteRemote": $(printf '%s' "$new_deleteRemote")
 }
 EOF
 

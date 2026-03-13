@@ -176,4 +176,4 @@ for p in "${possible_prefixes[@]}"; do
   fi
 done
 
-echo "Uninstallation complete."
+echo "Uninstallation complete"

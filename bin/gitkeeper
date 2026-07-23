@@ -57,9 +57,13 @@ ORIGINAL_ARGC=$#
 trap 'on_sigint' INT
 
 
-# Check for help flag first (before git repo check)
+# Check for help/version flags first (before git repo check)
 if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
   show_help
+  exit 0
+fi
+if [[ "$*" == *"--version"* ]] || [[ "$*" == *"-v"* ]]; then
+  echo "gitkeeper 0.0.19"
   exit 0
 fi
 

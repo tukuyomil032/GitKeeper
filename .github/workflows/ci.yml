@@ -30,11 +30,6 @@ jobs:
           shellcheck lib/discovery.sh
           shellcheck lib/colors.sh
 
-      - name: Check installation scripts
-        run: |
-          shellcheck scripts/install-macos.sh
-          shellcheck scripts/setup-alias.sh
-
       - name: Validate JSON config
         run: jq . templates/config.json > /dev/null
 
@@ -58,7 +53,7 @@ jobs:
         shell: bash
 
       - name: Make scripts executable
-        run: chmod +x bin/gitkeeper lib/*.sh scripts/*.sh
+        run: chmod +x bin/gitkeeper lib/*.sh
 
       - name: Test help output
         run: bin/gitkeeper --help | head -5

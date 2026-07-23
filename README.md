@@ -38,10 +38,13 @@ $ gitkeeper
 ---
 ### Install via curl (one-liner)
 
-You can install gitkeeper directly with a single curl command. Review the script before running if you prefer:
+You can install gitkeeper directly with a homebrew command. Review the script before running if you prefer:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/tukuyomil032/GitKeeper/refs/heads/main/install.sh | sh
+brew tap tukuyomil032/tap 
+brew trust tukuyomil032/tap
+
+brew install gitkeeper
 ```
 
 ---
@@ -58,8 +61,6 @@ cd gitkeeper
 brew install jq  # if not already installed
 brew install fzf # (optional, for enhanced interactive UI)
 
-# Run installer
-./scripts/install-macos.sh
 ```
 
 ### Linux
@@ -74,27 +75,7 @@ brew install jq     # or use your distro package manager
 # fzf is optional for enhanced interactive selection
 brew install fzf
 
-# Run installer (if provided for your platform)
-./scripts/install-macos.sh  # installer currently targets macOS; see repo scripts
 ```
-
-### From Source (Development)
-
-```bash
-git clone https://github.com/tukuyomil322/gitkeeper.git
-cd gitkeeper
-
-# Make installer executable
-chmod +x ./scripts/install-macos.sh
-chmod +x ./scripts/setup-alias.sh
-
-# Run installer
-./scripts/install-macos.sh
-
-# Setup shell alias (optional)
-./scripts/setup-alias.sh zsh    # or bash
-```
-
 ---
 
 ## 📖 Usage
@@ -323,40 +304,10 @@ gitkeeper --configure         # Interactive config editor (writes config.json)
 ```
 
 ---
-
-## ⚡ Quick Alias Setup
-
-The `gk` command is installed by default as a symlink. To add it to your shell profile:
-
-```bash
-# For zsh (recommended)
-./setup-alias.sh zsh
-source ~/.zshrc
-
-# For bash
-./setup-alias.sh bash
-source ~/.bash_profile
-
-# Or manually add to ~/.zshrc or ~/.bash_profile:
-alias gk='gitkeeper'
-```
-
-Then use:
-
-```bash
-gk                  # Same as gitkeeper
-gk --dry-run       # Preview
-gk --since 45 --no-stale  # Complex operations
-```
-
----
-
 ## 🔄 Uninstalling
 
 ```bash
-make uninstall
-rm -f ~/.config/gitkeeper/config.json
-rm -f ~/.zsh/completions/_gitkeeper
+brew uninstall gitkeeper
 ```
 
 ---

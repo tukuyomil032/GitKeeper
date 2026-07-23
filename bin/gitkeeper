@@ -63,7 +63,7 @@ if [[ "$*" == *"--help"* ]] || [[ "$*" == *"-h"* ]]; then
   exit 0
 fi
 if [[ "$*" == *"--version"* ]] || [[ "$*" == *"-v"* ]]; then
-  echo "gitkeeper $(cat "$BASE_DIR/VERSION" 2>/dev/null || echo "unknown")"
+  echo "gitkeeper $(cat "$BASE_DIR/version.env" 2>/dev/null || echo "unknown")"
   exit 0
 fi
 

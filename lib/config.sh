@@ -50,6 +50,8 @@ parse_args() {
         DRY_RUN=true; export DRY_RUN ;;
       --force|-f)
         FORCE=true; export FORCE ;;
+      --version|-v)
+        echo "gitkeeper 0.0.19"; exit 0 ;;
       --help|-h)
         show_help; exit 0 ;;
           --configure|-C)
@@ -83,6 +85,7 @@ OPTIONS:
   --no-gone, -G           Disable upstream gone branch check
   --delete-remote, -R     Also delete the remote-tracking branch (opt-in)
   --dry-run, -n           Show what would be deleted without deleting
+  --version, -v           Show version
   --force, -f             Force delete unmerged branches (use with caution)
   --help, -h              Show this help message
 

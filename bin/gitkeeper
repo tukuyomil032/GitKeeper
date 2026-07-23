@@ -7,7 +7,14 @@ set -euo pipefail
 
 # Resolve symlinks for correct path resolution
 REAL_SCRIPT="$(readlink -f "$0")"
-BASE_DIR="$(cd "$(dirname "$REAL_SCRIPT")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT")" && pwd)"
+# Homebrew layout: lib/ lives alongside the script in libexec/
+# Dev layout: lib/ lives in the parent of bin/
+if [ -d "$SCRIPT_DIR/lib" ]; then
+  BASE_DIR="$SCRIPT_DIR"
+else
+  BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
 export BASE_DIR
 
 # Source all lib files

@@ -167,7 +167,12 @@ select_branches() {
     echo \"🌿 Branch: \$branch\"
     echo \"\"
     echo \"---- Last commit ----\"
-    git log -1 --oneline \"\$branch\"
+    last_commit=\$(git log --oneline $DEFAULT_BRANCH..\$branch -1 2>/dev/null)
+    if [ -n \"\$last_commit\" ]; then
+      echo \"\$last_commit\"
+    else
+      echo \"(no unique commits -- branched from $DEFAULT_BRANCH)\"
+    fi
     echo \"\"
     echo \"---- Diff Stats ----\"
     git diff $DEFAULT_BRANCH..\$branch --stat 2>/dev/null || echo \"No diff info available\"

@@ -36,7 +36,7 @@ $ gitkeeper
 ```
 
 ---
-### Install via curl (one-liner)
+### Install via Homebrew
 
 You can install gitkeeper directly with a homebrew command. Review the script before running if you prefer:
 

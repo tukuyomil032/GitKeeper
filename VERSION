@@ -1,4 +1,0 @@
-// This file is used to centrally manage GitKeeper versions.
-// It is also referenced by shell scripts and during the release workflow using GitHub Actions.
-// Please do not delete this file.
-0.0.21

@@ -51,7 +51,7 @@ parse_args() {
       --force|-f)
         FORCE=true; export FORCE ;;
       --version|-v)
-        echo "gitkeeper $(cat "$BASE_DIR/VERSION" 2>/dev/null || echo "unknown")"; exit 0 ;;
+        echo "gitkeeper $(cat "$BASE_DIR/version.env" 2>/dev/null || echo "unknown")"; exit 0 ;;
       --help|-h)
         show_help; exit 0 ;;
           --configure|-C)

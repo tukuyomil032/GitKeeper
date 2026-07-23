@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'VERSION'
+      - 'version.env'
 
 jobs:
   release:
@@ -21,7 +21,7 @@ jobs:
       - name: Read version
         id: version
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION=$(cat version.env | tr -d '[:space:]')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
@@ -54,7 +54,7 @@ jobs:
             "lib/ui.sh"
             "lib/delete.sh"
             "lib/github.sh"
-            "VERSION"
+            "version.env"
             "README.md"
             "completions/_gitkeeper"
           )

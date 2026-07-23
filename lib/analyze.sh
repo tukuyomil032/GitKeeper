@@ -34,6 +34,9 @@ skip_protected() {
 }
 
 is_merged() {
+  local unique
+  unique=$(git log "${DEFAULT_BRANCH}..${1}" --oneline 2>/dev/null | wc -l | tr -d ' ')
+  [ "$unique" -eq 0 ] && return 1
   git merge-base --is-ancestor "$1" "$DEFAULT_BRANCH" 2>/dev/null
 }
 

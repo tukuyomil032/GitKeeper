@@ -29,7 +29,6 @@ jobs:
             "lib/delete.sh"
             "lib/github.sh"
             "lib/colors.sh"
-            "install.sh"
           )
 
           failed=0
@@ -103,7 +102,6 @@ jobs:
           executables=(
             "bin/gitkeeper"
             "lib/github.sh"
-            "install.sh"
           )
           
           for file in "${executables[@]}"; do

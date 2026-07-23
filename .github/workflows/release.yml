@@ -2,47 +2,50 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths:
+      - 'VERSION'
 
 jobs:
-  validate:
+  release:
     runs-on: ubuntu-latest
-    name: Validate Release (macOS-only)
-
+    name: Create Release from VERSION
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Read version
+        id: version
         run: |
-          sudo apt-get update
-          sudo apt-get install -y shellcheck jq
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Validate tag format
+      - name: Validate VERSION format
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
-            echo "Invalid tag format: $TAG"
-            echo "Expected format: v1.0.0 or v1.0.0-alpha"
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Invalid version format: $VERSION"
             exit 1
           fi
-          echo "✓ Tag format valid: $TAG"
+          echo "Version format valid: $VERSION"
 
-      - name: Run all checks
+      - name: Check if tag already exists
+        id: check_tag
         run: |
-          echo "Running linting..."
-          shellcheck -x --severity=error bin/gitkeeper lib/*.sh install.sh || true
-          echo "✓ ShellCheck (errors only) checked"
-
-          echo "Validating JSON..."
-          if [ -f "templates/config.json" ]; then
-            jq . templates/config.json > /dev/null
-            echo "✓ templates/config.json valid"
+          if git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.version }}" | grep -q .; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.version.outputs.version }} already exists -- skipping release."
           else
-            echo "⚠ templates/config.json not found; skipping JSON validation"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Verify files exist
+      - name: Verify required files
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
           required_files=(
             "bin/gitkeeper"
@@ -51,99 +54,32 @@ jobs:
             "lib/ui.sh"
             "lib/delete.sh"
             "lib/github.sh"
-            "install.sh"
+            "VERSION"
             "README.md"
-            "Makefile"
             "completions/_gitkeeper"
           )
-
           for file in "${required_files[@]}"; do
-            if [ ! -f "$file" ] && [ ! -d "$file" ]; then
-              echo "❌ Missing required file/dir: $file"
+            if [ ! -f "$file" ]; then
+              echo "Missing required file: $file"
               exit 1
             fi
           done
-          echo "✓ All required files present"
+          echo "All required files present"
 
-  build:
-    needs: validate
-    runs-on: ubuntu-latest
-    name: Build and Release
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create macOS distribution
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
-          mkdir -p dist/macos
-          # Copy main files if present
-          cp -r bin lib completions install.sh Makefile README.md dist/macos/ 2>/dev/null || true
-          # Copy templates/config.json into distribution as config.json when present
-          if [ -f templates/config.json ]; then
-            cp templates/config.json dist/macos/config.json
-          fi
-          tar -czf gitkeeper-macos.tar.gz -C dist/macos .
-          ls -lh gitkeeper-macos.tar.gz
-          echo "MACOS_SIZE=$(stat -f%z gitkeeper-macos.tar.gz)" >> $GITHUB_ENV
-
-      - name: Generate checksums
-        run: |
-          sha256sum gitkeeper-macos.tar.gz > gitkeeper-macos.tar.gz.sha256
-          cat gitkeeper-macos.tar.gz.sha256
-
-      - name: Create Release Notes
-        id: release_notes
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          {
-            echo "## 🎉 $VERSION Release"
-            echo ""
-            echo "### 📦 Downloads"
-            echo ""
-            echo "- **macOS** (Apple Silicon & Intel): [gitkeeper-macos.tar.gz]()"
-            echo ""
-            echo "### ✨ Features"
-            echo ""
-            echo "✅ Safe git branch cleanup tool"
-            echo "✅ Detects merged, stale, and orphaned branches"
-            echo "✅ Interactive selection with fzf"
-            echo "✅ Full recovery backup logging"
-            echo "✅ Customizable configuration (JSON)"
-            echo "✅ zsh completions"
-            echo ""
-            echo "### 🚀 Quick Start"
-            echo ""
-            echo "**macOS:**"
-            echo "\`\`\`bash"
-            echo "tar -xzf gitkeeper-macos.tar.gz && cd gitkeeper && make install"
-            echo "\`\`\`"
-            echo ""
-            echo "### 📚 Documentation"
-            echo ""
-            echo "See [README.md](https://github.com/hosiyomi322/gitkeeper#gitkeeper) for detailed documentation."
-            echo ""
-            echo "### 🔐 Checksums"
-            echo ""
-            echo "\`\`\`"
-            cat gitkeeper-*.sha256
-            echo "\`\`\`"
-          } > RELEASE_NOTES.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
-          body_path: RELEASE_NOTES.md
-          files: |
-            gitkeeper-macos.tar.gz
-            gitkeeper-macos.tar.gz.sha256
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Release Success
-        run: |
-          echo "✅ Release created successfully!"
-          echo "📦 Artifacts:"
-          ls -lh gitkeeper-*
-          ls -lh gitkeeper-*
-
